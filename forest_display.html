@@ -323,9 +323,11 @@ for(let i=0;i<18;i++){
   ffWrap.appendChild(ff);
 }
 
-/* ── 사운드 (Clair de Lune) ── */
+/* ── 사운드 (Clair de Lune - Internet Archive 직접 스트리밍) ── */
 const sBtn  = document.getElementById('sound-btn');
-const audio = new Audio('music.mp3');
+const audio = new Audio();
+audio.crossOrigin = 'anonymous';
+audio.src = 'https://archive.org/download/ClairDeLunedebussy/2009-03-30-clairdelune.mp3';
 audio.loop   = true;
 audio.volume = 0.5;
 let soundOn  = false;
@@ -335,7 +337,10 @@ sBtn.addEventListener('click', () => {
     audio.play().then(() => {
       soundOn = true;
       sBtn.textContent = '🔊 소리 켜짐';
-    }).catch(e => console.log(e));
+    }).catch(e => {
+      console.log(e);
+      sBtn.textContent = '🔇 소리 오류';
+    });
   } else {
     audio.pause();
     soundOn = false;

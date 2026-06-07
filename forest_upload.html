@@ -450,25 +450,37 @@
   // 다시 올리기
   document.getElementById('add-more-btn').addEventListener('click', () => {
     processedImageData = null;
-    fileInput.value = '';
     document.getElementById('name-input').value = '';
-    uploadArea.innerHTML = `
-      <div class="upload-placeholder" id="upload-placeholder">
-        <div class="icon">🖼️</div>
-        <div class="text">사진을 눌러서 올려주세요</div>
-        <div class="hint">테두리가 자연스럽게 블렌딩돼요</div>
-      </div>
-      <input type="file" id="file-input" accept="image/*">
+
+    // 미리보기 이미지 제거
+    const previewImg = uploadArea.querySelector('img');
+    if (previewImg) previewImg.remove();
+
+    // placeholder 다시 표시
+    let ph = document.getElementById('upload-placeholder');
+    if (!ph) {
+      ph = document.createElement('div');
+      ph.id = 'upload-placeholder';
+      ph.className = 'upload-placeholder';
+      uploadArea.insertBefore(ph, uploadArea.querySelector('input'));
+    }
+    ph.innerHTML = `
+      <div class="icon">🖼️</div>
+      <div class="text">사진을 눌러서 올려주세요</div>
+      <div class="hint">테두리가 자연스럽게 블렌딩돼요</div>
     `;
+    ph.style.display = 'flex';
+
+    // file input 초기화
+    const fi = uploadArea.querySelector('input[type=file]');
+    if (fi) fi.value = '';
+
     uploadArea.classList.remove('has-image');
     previewLabel.style.display = 'none';
     submitBtn.disabled = true;
     submitBtn.innerHTML = '숲에 올리기 🌿';
     document.getElementById('upload-form').style.display = 'block';
     document.getElementById('success-screen').style.display = 'none';
-
-    // 이벤트 재등록
-    document.getElementById('file-input').addEventListener('change', fileInput.onchange);
   });
 
   function showError(msg) {
