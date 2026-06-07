@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌿 여름 숲의 곤충들</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 100vw; height: 100vh; overflow: hidden; background: #000; font-family: 'Noto Sans KR', sans-serif; }
+
+  /* ── 파노라마 배경 ── */
+  #panorama-wrap {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+  }
+
+  #panorama-track {
+    display: flex;
+    height: 100%;
+    /* 이미지 3장 × 각 200vw = 600vw 총 너비 */
+    width: 600vw;
+    animation: panScroll 60s linear infinite;
+  }
+
+  @keyframes panScroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-200vw); }
+  }
+
+  .pan-img {
+    height: 100%;
+    width: 200vw;
+    object-fit: cover;
+    object-position: center;
+    flex-shrink: 0;
+    filter: brightness(1.4) saturate(1.2);
+  }
+
+  /* ── 안개/빛 오버레이 ── */
+  #overlay {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 30% 20%, rgba(255,240,180,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 30% at 70% 10%, rgba(255,255,200,0.08) 0%, transparent 60%),
+      linear-gradient(180deg, rgba(0,0,0,0.05) 0%, transparent 50%, rgba(0,20,0,0.2) 100%);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* 빛 줄기 */
+  .ray {
+    position: absolute;
+    top: -5%;
+    width: 80px;
+    height: 110%;
+    background: linear-gradient(180deg, rgba(255,245,180,0.18) 0%, transparent 80%);
+    transform-origin: top center;
+    pointer-events: none;
+    z-index: 3;
+    animation: rayPulse ease-in-out infinite;
+  }
+  @keyframes rayPulse {
+    0%,100% { opacity: 0.4; }
+    50%      { opacity: 0.9; }
+  }
+
+  /* ── 반딧불 ── */
+  .ff {
+    position: absolute;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #ffffaa;
+    box-shadow: 0 0 8px 4px rgba(255,255,120,0.7);
+    pointer-events: none;
+    z-index: 5;
+    animation: ffMove linear infinite;
+  }
+  @keyframes ffMove {
+    0%   { transform: translate(0,0); opacity:0; }
+    15%  { opacity: 1; }
+    85%  { opacity: 1; }
+    100% { transform: translate(var(--dx),var(--dy)); opacity:0; }
+  }
+
+  /* ── 곤충 카드 ── */
+  .insect {
+    position: absolute;
+    pointer-events: auto;
+    cursor: pointer;
+    z-index: 10;
+    transition: filter 0.3s;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+  }
+  .insect:hover {
+    filter: drop-shadow(0 0 18px rgba(255,255,120,0.6)) drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+    z-index: 20;
+  }
+  .insect img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .insect-name {
+    position: absolute;
+    bottom: -20px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.65);
+    color: #e8ffe8;
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .insect:hover .insect-name { opacity: 1; }
+
+  /* 새로 추가될 때 팝인 */
+  @keyframes popIn {
+    0%   { transform: scale(0) rotate(-15deg); opacity: 0; }
+    70%  { transform: scale(1.15) rotate(3deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  .pop-in { animation: popIn 0.5s ease-out forwards; }
+
+  /* ── UI 패널 공통 ── */
+  .panel {
+    background: rgba(5,20,5,0.75);
+    border: 1px solid rgba(120,220,120,0.25);
+    border-radius: 16px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+
+  /* ── 타이틀 ── */
+  #title {
+    position: fixed; top: 20px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    color: #d8f8d8;
+    font-size: 26px; font-weight: 700;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 40px rgba(80,200,80,0.3);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* ── 방 코드 ── */
+  #room-badge {
+    position: fixed; top: 20px; right: 22px;
+    z-index: 100;
+    padding: 10px 18px;
+    text-align: center;
+  }
+  #room-badge .lbl { font-size: 11px; color: #7dc87d; }
+  #room-badge .code { font-size: 20px; font-weight: 700; letter-spacing: 4px; color: #fff; }
+
+  /* ── QR 패널 ── */
+  #qr-panel {
+    position: fixed; right: 22px; bottom: 22px;
+    z-index: 100;
+    padding: 14px;
+    text-align: center;
+  }
+  #qr-box {
+    width: 130px; height: 130px;
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #qr-box img { width: 100%; height: 100%; }
+  #qr-panel p { color: #a8e6a8; font-size: 12px; margin-top: 8px; line-height: 1.6; font-family: 'Noto Sans KR', sans-serif; }
+
+  /* ── 빈 상태 ── */
+  #empty {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    color: rgba(200,240,200,0.35);
+    font-size: 17px; text-align: center; line-height: 2.2;
+    pointer-events: none; z-index: 50;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  /* ── 로딩 ── */
+  #loading {
+    position: fixed; inset: 0;
+    background: #071507;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px; z-index: 999;
+    color: #a8e6a8; font-size: 18px;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: opacity 0.6s;
+  }
+  .dot { display: inline-block; animation: bounce 1.2s ease-in-out infinite; }
+  .dot:nth-child(2){ animation-delay:.15s }
+  .dot:nth-child(3){ animation-delay:.3s }
+  @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-8px)} }
+
+  /* 사운드 버튼 */
+  #sound-btn {
+    position: fixed; top: 20px; left: 22px;
+    z-index: 100;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 18px;
+    border: none; background: rgba(5,20,5,0.75);
+    border: 1px solid rgba(120,220,120,0.25);
+    border-radius: 12px;
+    color: #a8e6a8;
+    backdrop-filter: blur(14px);
+    transition: all 0.2s;
+  }
+  #sound-btn:hover { background: rgba(20,60,20,0.85); }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="loading">
+  <div style="font-size:50px">🌿</div>
+  <div>여름 숲으로 들어가는 중<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
+</div>
+
+<!-- 파노라마 배경 -->
+<div id="panorama-wrap">
+  <div id="panorama-track">
+    <!-- 여름 숲 실사 사진 고정 (Unsplash, 무료 라이선스) -->
+    <img class="pan-img" src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=2400&q=80&fit=crop" alt="">
+    <img class="pan-img" src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=2400&q=80&fit=crop" alt="">
+    <img class="pan-img" src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=2400&q=80&fit=crop" alt="">
+    <!-- 루프용 복사 -->
+    <img class="pan-img" src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=2400&q=80&fit=crop" alt="">
+    <img class="pan-img" src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=2400&q=80&fit=crop" alt="">
+    <img class="pan-img" src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=2400&q=80&fit=crop" alt="">
+  </div>
+</div>
+
+<div id="overlay"></div>
+<div id="rays-wrap"></div>
+<div id="ff-wrap"></div>
+
+<div id="title">🌿 여름 숲의 곤충들</div>
+
+<button id="sound-btn" title="소리 켜기/끄기">🔇</button>
+
+<div id="room-badge" class="panel">
+  <div class="lbl">방 코드</div>
+  <div class="code" id="room-code-display">------</div>
+</div>
+
+<div id="insects-wrap"></div>
+
+<div id="empty"></div>
+
+<div id="qr-panel" class="panel">
+  <div id="qr-box"><span style="color:#aaa;font-size:11px">생성 중...</span></div>
+  <p>📱 QR 스캔하고<br>내 곤충 올리기!</p>
+</div>
+
+<!-- 배경음 (숨겨진 오디오) -->
+<audio id="bg-audio" loop>
+  <!-- Pixabay 로열티프리 여름 숲/매미 소리 -->
+  <source src="https://cdn.pixabay.com/audio/2022/07/25/audio_c6e90cadf8.mp3" type="audio/mpeg">
+</audio>
+
+<script type="module">
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, onSnapshot, query, orderBy }
+                            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+/* ── Firebase ── */
+const firebaseConfig = {
+  apiKey: "AIzaSyApY2T1NyffU4TP7DEj8sd4YJOPG1gi3FY",
+  authDomain: "with-yoonclass.firebaseapp.com",
+  projectId: "with-yoonclass",
+  storageBucket: "with-yoonclass.firebasestorage.app",
+  messagingSenderId: "590467932817",
+  appId: "1:590467932817:web:e352fdf6401d4081581530"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+/* ── 방 코드 ── */
+const params   = new URLSearchParams(location.search);
+let roomCode   = params.get('room');
+if (!roomCode) {
+  roomCode = Math.random().toString(36).substring(2,8).toUpperCase();
+  history.replaceState(null,'',`?room=${roomCode}`);
+}
+document.getElementById('room-code-display').textContent = roomCode;
+
+/* ── QR ── */
+const uploadUrl = location.href.replace('forest_display.html','forest_upload.html');
+const qrImg = new Image();
+qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(uploadUrl)}&bgcolor=ffffff&color=071507&margin=2`;
+qrImg.onload = () => { const b=document.getElementById('qr-box'); b.innerHTML=''; b.appendChild(qrImg); };
+
+/* ── 빛 줄기 ── */
+const raysWrap = document.getElementById('rays-wrap');
+[15,28,42,58,72,85].forEach((pct,i) => {
+  const r = document.createElement('div');
+  r.className = 'ray';
+  r.style.left = pct + '%';
+  r.style.transform = `rotate(${-25 + i*9}deg)`;
+  r.style.animationDuration = (3+i*0.7)+'s';
+  r.style.animationDelay   = (i*0.4)+'s';
+  raysWrap.appendChild(r);
+});
+
+/* ── 반딧불 ── */
+const ffWrap = document.getElementById('ff-wrap');
+for(let i=0;i<18;i++){
+  const ff=document.createElement('div');
+  ff.className='ff';
+  ff.style.left  = Math.random()*90+'%';
+  ff.style.top   = Math.random()*75+'%';
+  ff.style.animationDuration = (5+Math.random()*9)+'s';
+  ff.style.animationDelay   = (Math.random()*6)+'s';
+  ff.style.setProperty('--dx',(Math.random()*240-120)+'px');
+  ff.style.setProperty('--dy',(Math.random()*180-90)+'px');
+  ffWrap.appendChild(ff);
+}
+
+/* ── 사운드 버튼 ── */
+const audio = document.getElementById('bg-audio');
+const sBtn  = document.getElementById('sound-btn');
+audio.volume = 0.55;
+let soundOn = false;
+sBtn.addEventListener('click', () => {
+  if (!soundOn) {
+    audio.play().then(()=>{ soundOn=true; sBtn.textContent='🔊'; }).catch(()=>{});
+  } else {
+    audio.pause(); soundOn=false; sBtn.textContent='🔇';
+  }
+});
+
+/* ── 곤충 애니메이션 ── */
+const wrap   = document.getElementById('insects-wrap');
+const empty  = document.getElementById('empty');
+const insects = {};
+
+function floatInsect(el, sx, sy) {
+  let x=sx, y=sy;
+  let vx=(Math.random()-.5)*0.05, vy=(Math.random()-.5)*0.035;
+  let ang=Math.random()*360, wob=0.3+Math.random()*0.4;
+  (function move(){
+    x += vx + Math.sin(ang*.018)*wob;
+    y += vy + Math.cos(ang*.013)*wob*.5;
+    ang += .4;
+    if(x<3){x=3;vx=Math.abs(vx);}
+    if(x>87){x=87;vx=-Math.abs(vx);}
+    if(y<8){y=8;vy=Math.abs(vy);}
+    if(y>73){y=73;vy=-Math.abs(vy);}
+    el.style.left=x+'%'; el.style.top=y+'%';
+    requestAnimationFrame(move);
+  })();
+}
+
+function addInsect(doc){
+  if(insects[doc.id]) return;
+  const d = doc.data();
+  const size = 90+Math.random()*90;
+  const sx   = 5+Math.random()*75;
+  const sy   = 10+Math.random()*60;
+
+  const div  = document.createElement('div');
+  div.className='insect pop-in';
+  div.style.width  = size+'px';
+  div.style.height = size+'px';
+  div.style.left   = sx+'%';
+  div.style.top    = sy+'%';
+
+  const img=document.createElement('img'); img.src=d.imageData; img.alt=d.name||'곤충';
+  const nm =document.createElement('div'); nm.className='insect-name'; nm.textContent=d.name||'';
+  div.appendChild(img); div.appendChild(nm);
+  wrap.appendChild(div);
+  insects[doc.id]=div;
+  empty.style.display='none';
+
+  setTimeout(()=>div.classList.remove('pop-in'),500);
+  floatInsect(div,sx,sy);
+}
+
+function removeInsect(id){
+  if(insects[id]){ insects[id].remove(); delete insects[id]; }
+  if(!Object.keys(insects).length) empty.style.display='block';
+}
+
+/* ── Firestore 실시간 구독 ── */
+const q = query(collection(db,'rooms',roomCode,'insects'), orderBy('createdAt','asc'));
+onSnapshot(q, snap => {
+  snap.docChanges().forEach(ch => {
+    if(ch.type==='added')   addInsect(ch.doc);
+    if(ch.type==='removed') removeInsect(ch.doc.id);
+  });
+});
+
+/* ── 로딩 종료 ── */
+setTimeout(()=>{
+  const ld=document.getElementById('loading');
+  ld.style.opacity='0';
+  setTimeout(()=>ld.remove(),600);
+  if(!Object.keys(insects).length) empty.style.display='block';
+},1800);
+</script>
+</body>
+</html>

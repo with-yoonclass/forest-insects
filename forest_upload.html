@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🐛 내 곤충 올리기</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: linear-gradient(180deg, #0d2b1a 0%, #1a4a2e 50%, #2d6e3e 100%);
+    font-family: 'Noto Sans KR', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 32px 20px 40px;
+    color: #c8f0c8;
+    overflow-x: hidden;
+  }
+
+  /* 반딧불 배경 */
+  .bg-firefly {
+    position: fixed;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #ffffa0;
+    box-shadow: 0 0 6px 3px rgba(255,255,100,0.5);
+    animation: bgFF linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes bgFF {
+    0% { opacity: 0; transform: translate(0,0); }
+    20% { opacity: 0.8; }
+    80% { opacity: 0.8; }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+  }
+
+  .card {
+    position: relative;
+    z-index: 1;
+    background: rgba(10, 30, 10, 0.75);
+    border: 1px solid rgba(100,200,100,0.25);
+    border-radius: 24px;
+    padding: 28px 24px;
+    width: 100%;
+    max-width: 360px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 4px;
+    color: #e8ffe8;
+    letter-spacing: 1px;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: #7dc87d;
+    margin-bottom: 24px;
+  }
+
+  /* 방 코드 표시 */
+  .room-info {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: rgba(100,200,100,0.08);
+    border-radius: 12px;
+    border: 1px solid rgba(100,200,100,0.15);
+  }
+
+  .room-info .label { font-size: 11px; color: #7dc87d; }
+  .room-info .code { font-size: 22px; font-weight: 700; letter-spacing: 4px; color: #fff; }
+
+  /* 이름 입력 */
+  .field-label {
+    font-size: 13px;
+    color: #a8e6a8;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(100,200,100,0.3);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: #e8ffe8;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: 'Noto Sans KR', sans-serif;
+    margin-bottom: 20px;
+  }
+
+  input[type="text"]:focus {
+    border-color: rgba(100,200,100,0.7);
+    background: rgba(255,255,255,0.1);
+  }
+
+  input[type="text"]::placeholder { color: rgba(200,240,200,0.3); }
+
+  /* 이미지 업로드 영역 */
+  .upload-area {
+    width: 100%;
+    height: 200px;
+    border: 2px dashed rgba(100,200,100,0.4);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px;
+    background: rgba(255,255,255,0.03);
+  }
+
+  .upload-area:active { transform: scale(0.98); }
+  .upload-area.has-image { border-style: solid; border-color: rgba(100,200,100,0.6); }
+
+  .upload-area img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    border-radius: 14px;
+  }
+
+  .upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: rgba(200,240,200,0.5);
+    pointer-events: none;
+  }
+
+  .upload-placeholder .icon { font-size: 40px; }
+  .upload-placeholder .text { font-size: 14px; }
+  .upload-placeholder .hint { font-size: 11px; color: rgba(200,240,200,0.3); }
+
+  input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+
+  /* 제출 버튼 */
+  .submit-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #2d6e3e, #1a4a2e);
+    border: 1px solid rgba(100,200,100,0.4);
+    border-radius: 16px;
+    color: #e8ffe8;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans KR', sans-serif;
+    letter-spacing: 1px;
+  }
+
+  .submit-btn:active { transform: scale(0.97); }
+  .submit-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* 성공 화면 */
+  #success-screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+    padding: 20px 0;
+  }
+
+  .success-icon {
+    font-size: 60px;
+    animation: successBounce 0.5s ease-out;
+  }
+
+  @keyframes successBounce {
+    0% { transform: scale(0); }
+    70% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  .success-title { font-size: 22px; font-weight: 700; color: #e8ffe8; }
+  .success-sub { font-size: 14px; color: #7dc87d; line-height: 1.6; }
+
+  .add-more-btn {
+    margin-top: 8px;
+    padding: 12px 28px;
+    background: rgba(100,200,100,0.15);
+    border: 1px solid rgba(100,200,100,0.3);
+    border-radius: 12px;
+    color: #a8e6a8;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.2s;
+  }
+
+  /* 에러 메시지 */
+  .error-msg {
+    color: #ff9999;
+    font-size: 13px;
+    text-align: center;
+    margin-top: -12px;
+    margin-bottom: 12px;
+    display: none;
+  }
+
+  /* 로딩 스피너 */
+  .spinner {
+    display: inline-block;
+    width: 20px; height: 20px;
+    border: 2px solid rgba(200,240,200,0.3);
+    border-top-color: #c8f0c8;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 누끼 미리보기 */
+  .preview-label {
+    font-size: 11px;
+    color: rgba(200,240,200,0.4);
+    text-align: center;
+    margin-top: -14px;
+    margin-bottom: 16px;
+  }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- 배경 반딧불 -->
+<script>
+  for (let i = 0; i < 12; i++) {
+    const ff = document.createElement('div');
+    ff.className = 'bg-firefly';
+    ff.style.left = Math.random() * 100 + '%';
+    ff.style.top = Math.random() * 100 + '%';
+    ff.style.animationDuration = (6 + Math.random() * 8) + 's';
+    ff.style.animationDelay = (Math.random() * 6) + 's';
+    ff.style.setProperty('--dx', (Math.random() * 160 - 80) + 'px');
+    ff.style.setProperty('--dy', (Math.random() * 160 - 80) + 'px');
+    document.body.appendChild(ff);
+  }
+</script>
+
+<div class="card">
+  <h1>🌿 내 곤충 올리기</h1>
+  <p class="subtitle">여름 숲에 내가 그린 곤충을 띄워요!</p>
+
+  <div class="room-info">
+    <div class="label">방 코드</div>
+    <div class="code" id="room-code-display">------</div>
+  </div>
+
+  <!-- 업로드 폼 -->
+  <div id="upload-form">
+    <label class="field-label">내 이름 (선택)</label>
+    <input type="text" id="name-input" placeholder="예: 김지우" maxlength="10">
+
+    <label class="field-label">곤충 그림 사진 📸</label>
+    <div class="upload-area" id="upload-area">
+      <div class="upload-placeholder" id="upload-placeholder">
+        <div class="icon">🖼️</div>
+        <div class="text">사진을 눌러서 올려주세요</div>
+        <div class="hint">흰 배경이 자동으로 없어져요</div>
+      </div>
+      <input type="file" id="file-input" accept="image/*">
+    </div>
+    <div class="preview-label" id="preview-label" style="display:none">✨ 누끼 처리 완료!</div>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <button class="submit-btn" id="submit-btn" disabled>
+      숲에 올리기 🌿
+    </button>
+  </div>
+
+  <!-- 성공 화면 -->
+  <div id="success-screen">
+    <div class="success-icon">🦋</div>
+    <div class="success-title">숲에 날아갔어요!</div>
+    <div class="success-sub">내 곤충이 여름 숲을<br>날아다니고 있어요 🌿</div>
+    <button class="add-more-btn" id="add-more-btn">다른 곤충도 올리기</button>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyApY2T1NyffU4TP7DEj8sd4YJOPG1gi3FY",
+    authDomain: "with-yoonclass.firebaseapp.com",
+    projectId: "with-yoonclass",
+    storageBucket: "with-yoonclass.firebasestorage.app",
+    messagingSenderId: "590467932817",
+    appId: "1:590467932817:web:e352fdf6401d4081581530"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // 방 코드
+  const params = new URLSearchParams(location.search);
+  const roomCode = params.get('room') || 'DEFAULT';
+  document.getElementById('room-code-display').textContent = roomCode;
+
+  const fileInput = document.getElementById('file-input');
+  const uploadArea = document.getElementById('upload-area');
+  const submitBtn = document.getElementById('submit-btn');
+  const placeholder = document.getElementById('upload-placeholder');
+  const previewLabel = document.getElementById('preview-label');
+  const errorMsg = document.getElementById('error-msg');
+
+  let processedImageData = null;
+
+  // ── 누끼 처리 (흰 배경 제거) ──
+  function removeWhiteBackground(file) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 400;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          const r = Math.min(MAX / w, MAX / h);
+          w = Math.round(w * r); h = Math.round(h * r);
+        }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+
+        // 흰색 + 밝은 색 제거 (threshold 조정)
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i], g = data[i+1], b = data[i+2];
+          const brightness = (r + g + b) / 3;
+          const isWhitish = brightness > 220 && Math.max(r,g,b) - Math.min(r,g,b) < 40;
+          if (isWhitish) data[i+3] = 0; // 투명
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.src = url;
+    });
+  }
+
+  // 파일 선택 시
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // 용량 체크 (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showError('파일이 너무 커요. 5MB 이하 사진을 선택해주세요.');
+      return;
+    }
+
+    uploadArea.classList.add('has-image');
+    placeholder.innerHTML = '<div class="icon">⏳</div><div class="text">처리 중...</div>';
+    submitBtn.disabled = true;
+    hideError();
+
+    try {
+      processedImageData = await removeWhiteBackground(file);
+      // 미리보기
+      placeholder.innerHTML = '';
+      const preview = document.createElement('img');
+      preview.src = processedImageData;
+      uploadArea.insertBefore(preview, fileInput);
+      previewLabel.style.display = 'block';
+      submitBtn.disabled = false;
+    } catch (err) {
+      showError('이미지 처리 중 오류가 났어요. 다시 시도해주세요.');
+      placeholder.innerHTML = '<div class="icon">🖼️</div><div class="text">사진을 눌러서 올려주세요</div>';
+    }
+  });
+
+  // 제출
+  submitBtn.addEventListener('click', async () => {
+    if (!processedImageData) return;
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner"></span> 올리는 중...';
+    hideError();
+
+    try {
+      const name = document.getElementById('name-input').value.trim() || '익명';
+      await addDoc(collection(db, 'rooms', roomCode, 'insects'), {
+        imageData: processedImageData,
+        name: name,
+        createdAt: serverTimestamp()
+      });
+
+      // 성공
+      document.getElementById('upload-form').style.display = 'none';
+      const success = document.getElementById('success-screen');
+      success.style.display = 'flex';
+
+    } catch (err) {
+      console.error(err);
+      showError('업로드에 실패했어요. 인터넷 연결을 확인해주세요.');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '숲에 올리기 🌿';
+    }
+  });
+
+  // 다시 올리기
+  document.getElementById('add-more-btn').addEventListener('click', () => {
+    processedImageData = null;
+    fileInput.value = '';
+    document.getElementById('name-input').value = '';
+    uploadArea.innerHTML = `
+      <div class="upload-placeholder" id="upload-placeholder">
+        <div class="icon">🖼️</div>
+        <div class="text">사진을 눌러서 올려주세요</div>
+        <div class="hint">흰 배경이 자동으로 없어져요</div>
+      </div>
+      <input type="file" id="file-input" accept="image/*">
+    `;
+    uploadArea.classList.remove('has-image');
+    previewLabel.style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '숲에 올리기 🌿';
+    document.getElementById('upload-form').style.display = 'block';
+    document.getElementById('success-screen').style.display = 'none';
+
+    // 이벤트 재등록
+    document.getElementById('file-input').addEventListener('change', fileInput.onchange);
+  });
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.style.display = 'block';
+  }
+  function hideError() {
+    errorMsg.style.display = 'none';
+  }
+</script>
+</body>
+</html>
