@@ -267,7 +267,7 @@
 
 <script type="module">
 import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot, query, orderBy }
+import { getFirestore, collection, onSnapshot, query, orderBy, deleteDoc, doc, getDocs }
                             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 /* ── Firebase ── */
@@ -488,12 +488,22 @@ function removeInsect(id){
 }
 
 /* ── Firestore 실시간 구독 ── */
+const MAX_INSECTS = 15;
 const q = query(collection(db,'rooms',roomCode,'insects'), orderBy('createdAt','asc'));
-onSnapshot(q, snap => {
+
+onSnapshot(q, async snap => {
   snap.docChanges().forEach(ch => {
     if(ch.type==='added')   addInsect(ch.doc);
     if(ch.type==='removed') removeInsect(ch.doc.id);
   });
+
+  // 15마리 초과시 가장 오래된 것부터 삭제
+  if(snap.docs.length > MAX_INSECTS) {
+    const excess = snap.docs.slice(0, snap.docs.length - MAX_INSECTS);
+    for(const d of excess) {
+      await deleteDoc(doc(db, 'rooms', roomCode, 'insects', d.id));
+    }
+  }
 });
 
 /* ── 로딩 종료 ── */
