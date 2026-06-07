@@ -358,12 +358,15 @@
         const imageData = ctx.getImageData(0, 0, w, h);
         const data = imageData.data;
 
-        // 흰색 + 밝은 색 제거 (threshold 조정)
+        // 흰색/밝은 배경 제거 + 엣지 부드럽게
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i], g = data[i+1], b = data[i+2];
           const brightness = (r + g + b) / 3;
-          const isWhitish = brightness > 220 && Math.max(r,g,b) - Math.min(r,g,b) < 40;
-          if (isWhitish) data[i+3] = 0; // 투명
+          const saturation = Math.max(r,g,b) - Math.min(r,g,b);
+          if (brightness > 190 && saturation < 60) {
+            const alpha = Math.min(1, (brightness - 190) / 65);
+            data[i+3] = Math.round((1 - alpha) * data[i+3]);
+          }
         }
 
         ctx.putImageData(imageData, 0, 0);

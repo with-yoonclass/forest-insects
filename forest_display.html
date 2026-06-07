@@ -262,12 +262,6 @@
   <p>📱 QR 스캔하고<br>내 곤충 올리기!</p>
 </div>
 
-<!-- 배경음 (숨겨진 오디오) -->
-<audio id="bg-audio" loop>
-  <!-- Pixabay 로열티프리 여름 숲/매미 소리 -->
-  <source src="https://cdn.pixabay.com/audio/2022/07/25/audio_c6e90cadf8.mp3" type="audio/mpeg">
-</audio>
-
 <script type="module">
 import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot, query, orderBy }
@@ -326,16 +320,96 @@ for(let i=0;i<18;i++){
   ffWrap.appendChild(ff);
 }
 
-/* ── 사운드 버튼 ── */
-const audio = document.getElementById('bg-audio');
-const sBtn  = document.getElementById('sound-btn');
-audio.volume = 0.55;
-let soundOn = false;
+/* ── 사운드 (Web Audio API 매미/풀벌레) ── */
+const sBtn = document.getElementById('sound-btn');
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let actx = null, soundOn = false, masterGain = null;
+
+function startForestSound() {
+  actx = new AudioCtx();
+  masterGain = actx.createGain();
+  masterGain.gain.value = 0.7;
+  masterGain.connect(actx.destination);
+
+  // 매미 소리: 고주파 AM 변조
+  function cicada(freq, modFreq, vol) {
+    const carrier = actx.createOscillator();
+    const modOsc  = actx.createOscillator();
+    const modGain = actx.createGain();
+    const outGain = actx.createGain();
+    const filter  = actx.createBiquadFilter();
+
+    carrier.type = 'sawtooth';
+    carrier.frequency.value = freq;
+    modOsc.frequency.value = modFreq;
+    modGain.gain.value = freq * 0.4;
+    outGain.gain.value = vol;
+    filter.type = 'bandpass';
+    filter.frequency.value = freq;
+    filter.Q.value = 3;
+
+    modOsc.connect(modGain);
+    modGain.connect(carrier.frequency);
+    carrier.connect(filter);
+    filter.connect(outGain);
+    outGain.connect(masterGain);
+    carrier.start(); modOsc.start();
+    return { carrier, modOsc };
+  }
+
+  // 풀벌레 소리: 낮은 주파수 반복 클릭
+  function cricket(freq, rate, vol) {
+    function chirp() {
+      if (!soundOn) return;
+      const buf = actx.createBuffer(1, actx.sampleRate * 0.05, actx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) {
+        d[i] = Math.sin(2 * Math.PI * freq * i / actx.sampleRate) *
+               Math.exp(-i / (actx.sampleRate * 0.015));
+      }
+      const src = actx.createBufferSource();
+      const g = actx.createGain();
+      src.buffer = buf;
+      g.gain.value = vol;
+      src.connect(g); g.connect(masterGain);
+      src.start();
+      setTimeout(chirp, rate + Math.random() * rate * 0.6);
+    }
+    setTimeout(chirp, Math.random() * rate);
+  }
+
+  // 매미 3마리
+  cicada(3200, 180, 0.08);
+  cicada(3600, 200, 0.06);
+  cicada(4100, 160, 0.05);
+  // 풀벌레 여러 마리
+  cricket(4500, 120, 0.5);
+  cricket(4200, 100, 0.4);
+  cricket(3900, 140, 0.35);
+  cricket(5000, 90,  0.3);
+  cricket(3600, 160, 0.25);
+
+  // 바람 소리 (화이트 노이즈 필터)
+  const bufSize = actx.sampleRate * 2;
+  const noiseBuf = actx.createBuffer(1, bufSize, actx.sampleRate);
+  const nd = noiseBuf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) nd[i] = Math.random() * 2 - 1;
+  const noiseLoop = actx.createBufferSource();
+  noiseLoop.buffer = noiseBuf; noiseLoop.loop = true;
+  const noiseFilter = actx.createBiquadFilter();
+  noiseFilter.type = 'lowpass'; noiseFilter.frequency.value = 400;
+  const noiseGain = actx.createGain(); noiseGain.gain.value = 0.015;
+  noiseLoop.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(masterGain);
+  noiseLoop.start();
+}
+
 sBtn.addEventListener('click', () => {
   if (!soundOn) {
-    audio.play().then(()=>{ soundOn=true; sBtn.textContent='🔊'; }).catch(()=>{});
+    startForestSound();
+    soundOn = true; sBtn.textContent = '🔊';
   } else {
-    audio.pause(); soundOn=false; sBtn.textContent='🔇';
+    if (actx) { actx.suspend(); }
+    soundOn = false; sBtn.textContent = '🔇';
   }
 });
 
@@ -343,30 +417,115 @@ sBtn.addEventListener('click', () => {
 const wrap   = document.getElementById('insects-wrap');
 const empty  = document.getElementById('empty');
 const insects = {};
+let insectCount = 0;
 
-function floatInsect(el, sx, sy) {
-  let x=sx, y=sy;
-  let vx=(Math.random()-.5)*0.05, vy=(Math.random()-.5)*0.035;
-  let ang=Math.random()*360, wob=0.3+Math.random()*0.4;
-  (function move(){
-    x += vx + Math.sin(ang*.018)*wob;
-    y += vy + Math.cos(ang*.013)*wob*.5;
-    ang += .4;
-    if(x<3){x=3;vx=Math.abs(vx);}
-    if(x>87){x=87;vx=-Math.abs(vx);}
-    if(y<8){y=8;vy=Math.abs(vy);}
-    if(y>73){y=73;vy=-Math.abs(vy);}
-    el.style.left=x+'%'; el.style.top=y+'%';
-    requestAnimationFrame(move);
-  })();
+// 움직임 유형: 순환 배정
+const MOTION_TYPES = ['fly', 'vibrate', 'crawl', 'jump'];
+
+function applyMotion(el, type, sx, sy) {
+  const img = el.querySelector('img');
+
+  if (type === 'fly') {
+    // 나비/잠자리: 유선형으로 날아다님 + 날개짓 (scale Y)
+    let x=sx, y=sy;
+    let vx=(Math.random()>.5?1:-1)*(0.04+Math.random()*0.04);
+    let vy=(Math.random()-.5)*0.02;
+    let ang=0, flapT=0;
+    img.style.transition='transform 0.15s ease';
+    (function move(){
+      x+=vx; y+=vy+Math.sin(ang*.02)*0.3;
+      ang+=0.5; flapT+=0.18;
+      if(x<8){x=8;vx=Math.abs(vx);}
+      if(x>82){x=82;vx=-Math.abs(vx);}
+      if(y<12){y=12;vy=Math.abs(vy);}
+      if(y>68){y=68;vy=-Math.abs(vy);}
+      // 날개짓: scaleY 0.7~1.0
+      const flap = 0.82+Math.sin(flapT)*0.18;
+      img.style.transform=`scaleY(${flap}) scaleX(${vx>0?1:-1})`;
+      el.style.left=x+'%'; el.style.top=y+'%';
+      requestAnimationFrame(move);
+    })();
+
+  } else if (type === 'vibrate') {
+    // 매미: 나뭇가지 근처에서 커졌다 작아졌다 + 미세 진동
+    let x=sx, y=sy;
+    let t=0, driftT=0;
+    let driftX=(Math.random()-.5)*0.008, driftY=(Math.random()-.5)*0.005;
+    (function move(){
+      t+=0.06; driftT+=0.3;
+      // 천천히 조금씩 이동
+      x+=driftX+Math.sin(driftT*.04)*0.05;
+      y+=driftY+Math.cos(driftT*.03)*0.03;
+      if(x<10){x=10;driftX=Math.abs(driftX);}
+      if(x>80){x=80;driftX=-Math.abs(driftX);}
+      if(y<15){y=15;driftY=Math.abs(driftY);}
+      if(y>65){y=65;driftY=-Math.abs(driftY);}
+      // 울음: scale 1.0~1.12 주기적으로
+      const pulse = 1 + Math.sin(t)*0.06 + Math.sin(t*3.7)*0.02;
+      const shake = Math.sin(t*12)*0.8;
+      img.style.transform=`scale(${pulse}) translateX(${shake}px)`;
+      el.style.left=x+'%'; el.style.top=y+'%';
+      requestAnimationFrame(move);
+    })();
+
+  } else if (type === 'crawl') {
+    // 애벌레: 느리게 좌우로만 기어다님 + 몸통 꿈틀
+    let x=sx, y=sy+10;
+    if(y>72) y=72;
+    let vx=(Math.random()>.5?1:-1)*0.025;
+    let t=0;
+    (function move(){
+      x+=vx; t+=0.08;
+      if(x<8){x=8;vx=Math.abs(vx);img.style.transform='scaleX(1)';}
+      if(x>82){x=82;vx=-Math.abs(vx);img.style.transform='scaleX(-1)';}
+      // 꿈틀: skewX + scaleX
+      const wriggle = Math.sin(t)*4;
+      const scaleX  = vx>0?1:-1;
+      img.style.transform=`scaleX(${scaleX}) skewX(${wriggle}deg)`;
+      el.style.left=x+'%'; el.style.top=y+'%';
+      requestAnimationFrame(move);
+    })();
+
+  } else if (type === 'jump') {
+    // 메뚜기: 포물선 점프 반복
+    let x=sx, y=sy;
+    let phase='wait', waitT=0;
+    let jx=0,jy=0,jvx=0,jvy=0,gravity=0.15;
+    function startJump(){
+      jvx=(Math.random()>.5?1:-1)*(1.2+Math.random()*1.5);
+      jvy=-(2.5+Math.random()*2);
+      phase='jump';
+    }
+    startJump();
+    (function move(){
+      if(phase==='jump'){
+        x+=jvx*0.4; y+=jvy*0.25;
+        jvy+=gravity*0.25;
+        img.style.transform=`rotate(${jvx>0?-15:15}deg) scaleX(${jvx>0?1:-1})`;
+        if(x<8){x=8;jvx=Math.abs(jvx);}
+        if(x>82){x=82;jvx=-Math.abs(jvx);}
+        if(y>sy+5){ y=sy+5; phase='wait'; waitT=0;
+          img.style.transform=`scaleX(${jvx>0?1:-1})`;
+        }
+        if(y<12) y=12;
+      } else {
+        waitT++;
+        if(waitT>80+Math.random()*120) startJump();
+      }
+      el.style.left=x+'%'; el.style.top=y+'%';
+      requestAnimationFrame(move);
+    })();
+  }
 }
 
 function addInsect(doc){
   if(insects[doc.id]) return;
   const d = doc.data();
-  const size = 90+Math.random()*90;
-  const sx   = 5+Math.random()*75;
-  const sy   = 10+Math.random()*60;
+  const size = 85+Math.random()*80;
+  const sx   = 10+Math.random()*70;
+  const sy   = 15+Math.random()*52;
+  const motionType = MOTION_TYPES[insectCount % MOTION_TYPES.length];
+  insectCount++;
 
   const div  = document.createElement('div');
   div.className='insect pop-in';
@@ -382,8 +541,10 @@ function addInsect(doc){
   insects[doc.id]=div;
   empty.style.display='none';
 
-  setTimeout(()=>div.classList.remove('pop-in'),500);
-  floatInsect(div,sx,sy);
+  setTimeout(()=>{
+    div.classList.remove('pop-in');
+    applyMotion(div, motionType, sx, sy);
+  }, 500);
 }
 
 function removeInsect(id){
