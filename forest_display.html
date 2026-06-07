@@ -267,7 +267,7 @@
 
 <script type="module">
 import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot, query, orderBy, deleteDoc, doc, getDocs }
+import { getFirestore, collection, onSnapshot, query, orderBy, deleteDoc, doc, getDocs, writeBatch }
                             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 /* ── Firebase ── */
@@ -513,6 +513,30 @@ setTimeout(()=>{
   setTimeout(()=>ld.remove(),600);
   if(!Object.keys(insects).length) empty.style.display='block';
 },1800);
+
+/* ── 방 닫을 때 데이터 자동 삭제 ── */
+async function deleteRoom() {
+  try {
+    const snap = await getDocs(collection(db, 'rooms', roomCode, 'insects'));
+    const batch = writeBatch(db);
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  } catch(e) { console.log(e); }
+}
+
+// 브라우저/탭 닫을 때
+window.addEventListener('beforeunload', () => {
+  // sendBeacon으로 비동기 삭제 요청 (페이지 종료 시점에서 가능한 방식)
+  navigator.sendBeacon && deleteRoom();
+  deleteRoom();
+});
+
+// 페이지 숨겨질 때 (모바일 포함)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    deleteRoom();
+  }
+});
 </script>
 </body>
 </html>
