@@ -205,17 +205,20 @@
   #sound-btn {
     position: fixed; top: 20px; left: 22px;
     z-index: 100;
-    padding: 10px 16px;
+    padding: 10px 20px;
     cursor: pointer;
-    font-size: 18px;
-    border: none; background: rgba(5,20,5,0.75);
-    border: 1px solid rgba(120,220,120,0.25);
+    font-size: 15px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    background: rgba(5,20,5,0.85);
+    border: 1px solid rgba(120,220,120,0.5);
     border-radius: 12px;
-    color: #a8e6a8;
+    color: #c8f0c8;
     backdrop-filter: blur(14px);
     transition: all 0.2s;
+    letter-spacing: 0.5px;
   }
-  #sound-btn:hover { background: rgba(20,60,20,0.85); }
+  #sound-btn:hover { background: rgba(20,60,20,0.95); border-color: rgba(120,220,120,0.9); }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
 </head>
@@ -246,7 +249,7 @@
 
 <div id="title">🌿 여름 숲의 곤충들</div>
 
-<button id="sound-btn" title="소리 켜기/끄기">🔇</button>
+<button id="sound-btn">🔇 소리 켜기</button>
 
 <div id="room-badge" class="panel">
   <div class="lbl">방 코드</div>
@@ -360,7 +363,7 @@ function startForestSound() {
   // 풀벌레 소리: 낮은 주파수 반복 클릭
   function cricket(freq, rate, vol) {
     function chirp() {
-      if (!soundOn) return;
+      // 계속 재생
       const buf = actx.createBuffer(1, actx.sampleRate * 0.05, actx.sampleRate);
       const d = buf.getChannelData(0);
       for (let i = 0; i < d.length; i++) {
@@ -406,10 +409,10 @@ function startForestSound() {
 sBtn.addEventListener('click', () => {
   if (!soundOn) {
     startForestSound();
-    soundOn = true; sBtn.textContent = '🔊';
+    soundOn = true; sBtn.textContent = '🔊 소리 켜짐';
   } else {
     if (actx) { actx.suspend(); }
-    soundOn = false; sBtn.textContent = '🔇';
+    soundOn = false; sBtn.textContent = '🔇 소리 켜기'; if(actx){ actx.suspend(); }
   }
 });
 
