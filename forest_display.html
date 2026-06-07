@@ -323,96 +323,23 @@ for(let i=0;i<18;i++){
   ffWrap.appendChild(ff);
 }
 
-/* ── 사운드 (Web Audio API 매미/풀벌레) ── */
-const sBtn = document.getElementById('sound-btn');
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let actx = null, soundOn = false, masterGain = null;
-
-function startForestSound() {
-  actx = new AudioCtx();
-  masterGain = actx.createGain();
-  masterGain.gain.value = 0.7;
-  masterGain.connect(actx.destination);
-
-  // 매미 소리: 고주파 AM 변조
-  function cicada(freq, modFreq, vol) {
-    const carrier = actx.createOscillator();
-    const modOsc  = actx.createOscillator();
-    const modGain = actx.createGain();
-    const outGain = actx.createGain();
-    const filter  = actx.createBiquadFilter();
-
-    carrier.type = 'sawtooth';
-    carrier.frequency.value = freq;
-    modOsc.frequency.value = modFreq;
-    modGain.gain.value = freq * 0.4;
-    outGain.gain.value = vol;
-    filter.type = 'bandpass';
-    filter.frequency.value = freq;
-    filter.Q.value = 3;
-
-    modOsc.connect(modGain);
-    modGain.connect(carrier.frequency);
-    carrier.connect(filter);
-    filter.connect(outGain);
-    outGain.connect(masterGain);
-    carrier.start(); modOsc.start();
-    return { carrier, modOsc };
-  }
-
-  // 풀벌레 소리: 낮은 주파수 반복 클릭
-  function cricket(freq, rate, vol) {
-    function chirp() {
-      // 계속 재생
-      const buf = actx.createBuffer(1, actx.sampleRate * 0.05, actx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) {
-        d[i] = Math.sin(2 * Math.PI * freq * i / actx.sampleRate) *
-               Math.exp(-i / (actx.sampleRate * 0.015));
-      }
-      const src = actx.createBufferSource();
-      const g = actx.createGain();
-      src.buffer = buf;
-      g.gain.value = vol;
-      src.connect(g); g.connect(masterGain);
-      src.start();
-      setTimeout(chirp, rate + Math.random() * rate * 0.6);
-    }
-    setTimeout(chirp, Math.random() * rate);
-  }
-
-  // 매미 3마리
-  cicada(3200, 180, 0.08);
-  cicada(3600, 200, 0.06);
-  cicada(4100, 160, 0.05);
-  // 풀벌레 여러 마리
-  cricket(4500, 120, 0.5);
-  cricket(4200, 100, 0.4);
-  cricket(3900, 140, 0.35);
-  cricket(5000, 90,  0.3);
-  cricket(3600, 160, 0.25);
-
-  // 바람 소리 (화이트 노이즈 필터)
-  const bufSize = actx.sampleRate * 2;
-  const noiseBuf = actx.createBuffer(1, bufSize, actx.sampleRate);
-  const nd = noiseBuf.getChannelData(0);
-  for (let i = 0; i < bufSize; i++) nd[i] = Math.random() * 2 - 1;
-  const noiseLoop = actx.createBufferSource();
-  noiseLoop.buffer = noiseBuf; noiseLoop.loop = true;
-  const noiseFilter = actx.createBiquadFilter();
-  noiseFilter.type = 'lowpass'; noiseFilter.frequency.value = 400;
-  const noiseGain = actx.createGain(); noiseGain.gain.value = 0.015;
-  noiseLoop.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(masterGain);
-  noiseLoop.start();
-}
+/* ── 사운드 (Clair de Lune) ── */
+const sBtn  = document.getElementById('sound-btn');
+const audio = new Audio('music.mp3');
+audio.loop   = true;
+audio.volume = 0.5;
+let soundOn  = false;
 
 sBtn.addEventListener('click', () => {
   if (!soundOn) {
-    startForestSound();
-    soundOn = true; sBtn.textContent = '🔊 소리 켜짐';
+    audio.play().then(() => {
+      soundOn = true;
+      sBtn.textContent = '🔊 소리 켜짐';
+    }).catch(e => console.log(e));
   } else {
-    if (actx) { actx.suspend(); }
-    soundOn = false; sBtn.textContent = '🔇 소리 켜기'; if(actx){ actx.suspend(); }
+    audio.pause();
+    soundOn = false;
+    sBtn.textContent = '🔇 소리 켜기';
   }
 });
 
